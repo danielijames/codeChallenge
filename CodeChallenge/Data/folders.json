@@ -1,0 +1,20 @@
+[
+    {
+        "id": "1",
+        "name": "Math",
+        "created": "2020-11-03T09:45:21Z",
+        "description": "Math is the most true form of the universe"
+    },
+    {
+        "id": "2",
+        "name": "Science",
+        "created": "2020-11-02T12:45:21Z",
+        "description": "Science rules"
+    },
+    {
+        "id": "3",
+        "name": "Social Science",
+        "created": "2020-11-12T02:45:21Z",
+        "description": "Science, but the social kind"
+    }
+]

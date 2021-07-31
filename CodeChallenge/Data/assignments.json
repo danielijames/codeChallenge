@@ -1,0 +1,34 @@
+[
+    {
+        "id": "1",
+        "name": "Algebra 1",
+        "folder_id": "1",
+        "created": "2020-11-03T09:59:58Z",
+        "description": "Well, we all have to start somewhere"
+    },
+    {
+        "id": "2",
+        "name": "Pre-chem",
+        "folder_id": "2",
+        "created": "2020-11-03T19:59:58Z",
+        "description": "Before...chemistry"
+    },
+    {
+        "id": "3",
+        "name": "American Civil War",
+        "folder_id": "2",
+        "created": "2020-11-02T12:59:58Z",
+    },
+    {
+        "id": "4",
+        "name": "Typing 2",
+        "description": "Mavis Beacon teaches typing"
+    },
+    {
+        "id": "5",
+        "name": "Programming",
+        "created": "2020-11-13T12:59:58Z",
+        "folder_id": "4",
+        "description": "Chestmaster 3000"
+    }
+]
