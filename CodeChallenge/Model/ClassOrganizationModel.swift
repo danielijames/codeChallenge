@@ -9,7 +9,7 @@ import Foundation
 
 /* Codable inherits both encodable and decodable */
 
-class ClassOrganizationModel: Codable {
+struct ClassOrganizationModel: Codable {
     /* All Entries must contain id */
     var id: String
     /* Optional values for which the API could return */
@@ -22,7 +22,7 @@ class ClassOrganizationModel: Codable {
     /*Additional Parameters for organizing*/
     var timeIntervalSince: Double?
     
-    func adjustFolderID(newId: Int) {
+    mutating func adjustFolderID(newId: Int) {
         self.folder_id = String(newId)
     }
 }

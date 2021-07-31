@@ -37,6 +37,7 @@ final class ViewController: UIViewController, UITableViewDelegate, UITableViewDa
     lazy var assignmentsData: [ClassOrganizationModel]? = nil
     lazy var foldersData: [ClassOrganizationModel]? = nil
     lazy var folderDataCount: Int = 0
+    let dateFormatter = DateFormatter()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -45,6 +46,7 @@ final class ViewController: UIViewController, UITableViewDelegate, UITableViewDa
     }
     
     func setup() {
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
         tableView.delegate = self
         tableView.dataSource = self
     }
@@ -59,47 +61,31 @@ final class ViewController: UIViewController, UITableViewDelegate, UITableViewDa
         folderDataCount = foldersData?.count ?? 0
         
         /*Process the data*/
-        if let assignmentsData = assignmentsData, let foldersData = foldersData {
-            self.assignmentsData = adjustAllData(data: assignmentsData)
-            self.foldersData = adjustAllData(data: foldersData)
-            tableView.reloadData()
+        if var assignmentsData = assignmentsData, var foldersData = foldersData {
+            adjustAllData(data: &assignmentsData)
+            adjustAllData(data: &foldersData)
+            /* Assign the adjusted data to the local vars*/
+            self.assignmentsData = assignmentsData
+            self.foldersData = foldersData
         }
     }
 }
 
 // MARK:: Logic for filtering and adjusting the Data
 extension ViewController {
-    
     /* Adjust the folder ID */
-    func adjustAllData(data: [ClassOrganizationModel]) -> [ClassOrganizationModel] {
-        var mutableData = data
-        mutableData = filterAndAdjustDates(data: mutableData)
-        for eachGrouping in mutableData {
+    func adjustAllData(data: inout [ClassOrganizationModel]){
+        for (index, eachGrouping) in data.enumerated() {
+            if let currentDate = eachGrouping.created, let currentGroupingDate = dateFormatter.date(from: currentDate) {
+                data[index].timeIntervalSince = currentGroupingDate.timeIntervalSince1970
+            }
             /*Adjust folder ID to correctly classify uncategorized sections*/
-            guard let folder = eachGrouping.folder_id else {
-                eachGrouping.adjustFolderID(newId: folderDataCount+1)
-                break
-            }
-            guard Int(folder) ?? 0 < folderDataCount else {
-                eachGrouping.adjustFolderID(newId: folderDataCount+1)
-                break
+            guard let folderID = eachGrouping.folder_id, Int(folderID) ?? (folderDataCount + 1) < folderDataCount else {
+                data[index].adjustFolderID(newId: folderDataCount+1)
+                continue
             }
         }
-        return mutableData
-    }
-    
-    func filterAndAdjustDates(data: [ClassOrganizationModel]) -> [ClassOrganizationModel] {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        
-        for eachGrouping in data {
-            /* Dates must be non-nil and count must be greater than 0 to compare dates */
-            guard let currentDate = eachGrouping.created, let currentGroupingDate = dateFormatter.date(from: currentDate) else {
-                continue}
-            eachGrouping.timeIntervalSince = currentGroupingDate.timeIntervalSince1970
-        }
-        let newData = data.sorted { $0.timeIntervalSince ?? 0.0 < $1.timeIntervalSince ?? 0.0 }
-        return newData
+        data = data.sorted { $0.timeIntervalSince ?? 0.0 < $1.timeIntervalSince ?? 0.0 }
     }
 }
 
@@ -113,10 +99,9 @@ extension ViewController {
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        guard let foldersData = foldersData else {return nil}
         /* Account for uncategorized cell and avoid crash by stopping array from checking an index out of range */
-        guard section < foldersData.count else {return "Uncategorized"}
-        return foldersData[section].name
+        guard section < folderDataCount else {return "Uncategorized"}
+        return foldersData?[section].name
     }
     
     func numberOfSections(in tableView: UITableView) -> Int {
