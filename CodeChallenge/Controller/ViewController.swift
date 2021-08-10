@@ -31,105 +31,124 @@
  */
 
 import UIKit
+import OSLog
 
-final class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+public enum FileNames: String { case assignments = "assignments", folders = "folders"}
+public let DateFormat: String = "yyyy-MM-dd'T'HH:mm:ssZ"
+typealias assignments = [FileNames: [ClassOrganizationModel]]
+
+final class ViewController: UIViewController {
     @IBOutlet weak var tableView: UITableView!
-    lazy var assignmentsData: [ClassOrganizationModel]? = nil
-    lazy var foldersData: [ClassOrganizationModel]? = nil
-    lazy var folderDataCount: Int = 0
     let dateFormatter = DateFormatter()
+    var assignmentsDict = assignments()
+    var assignments_ByFolderID = [ Int: [ClassOrganizationModel] ]()
+    static let pointsOfInterest = OSLog(subsystem: "com.apple.CodeChallenge", category: .pointsOfInterest)
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setup()
-        fetchData()
     }
     
     func setup() {
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        tableView.delegate = self
-        tableView.dataSource = self
+        dateFormatter.dateFormat = DateFormat
+        fetchData(completion: { [weak self] classInfo in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                os_signpost(.begin, log: ViewController.pointsOfInterest, name: "Filtering Data")
+                self?.filterData(data: classInfo)
+                os_signpost(.end, log: ViewController.pointsOfInterest, name: "Filtering Data")
+            }
+        })
+    }
+
+    func fetchData(completion: (assignments?)->Void) {
+        assignmentsDict[FileNames.assignments] = self.fetchClassFile(forName: FileNames.assignments.rawValue)
+        assignmentsDict[FileNames.folders] = self.fetchClassFile(forName: FileNames.folders.rawValue)
+        if !assignmentsDict.isEmpty {
+        /* Fetching data was a success */
+            completion(assignmentsDict)
+            return
+        }
+        /* You have failed to fetch data */
+        completion(nil)
+        return
     }
     
-    /* Store Data locally for parsing */
-    /* Data fetched locally is fetched Synchronously */
-    func fetchData() {
-        assignmentsData = self.fetchClassFile(forName: "assignments")
-        foldersData = self.fetchClassFile(forName: "folders")
+    func filterData(data: assignments?) {
+        guard var data = data else {return}
+
+        /* Sort the folders by ID */
+        let filteredFolders = data[FileNames.folders]?.sorted{ $0.id < $1.id }
+        data[FileNames.folders] = filteredFolders
         
-        /* Retain the count of sections needed */
-        folderDataCount = foldersData?.count ?? 0
+        /* Unassigned Folder count */
+        guard let folderCount = filteredFolders?.count else {return}
+        let unassignedFolder = folderCount + 1
         
-        /*Process the data*/
-        if var assignmentsData = assignmentsData, var foldersData = foldersData {
-            adjustAllData(data: &assignmentsData)
-            adjustAllData(data: &foldersData)
-            /* Assign the adjusted data to the local vars*/
-            self.assignmentsData = assignmentsData
-            self.foldersData = foldersData
+        
+        
+        let assignments = data[FileNames.assignments] ?? []
+        _ = assignments.enumerated().map({
+            var elementOfInterest = $0.element
+            
+            /* 1. Add TimeIntervalSince1970 */
+            let currentDate = $0.element.created ?? ""
+            let date = dateFormatter.date(from: currentDate) ?? Date()
+            elementOfInterest.timeIntervalSince = date.timeIntervalSince1970
+            
+            /* 2. Assign Folder ID to nil Folders */
+            let folder_ID = Int($0.element.folder_id ?? "\(unassignedFolder)")
+            if assignments_ByFolderID[folder_ID ?? unassignedFolder] == nil {
+                assignments_ByFolderID[folder_ID ?? unassignedFolder] = [elementOfInterest]
+            } else {
+                assignments_ByFolderID[folder_ID ?? unassignedFolder]?.append(elementOfInterest)
+            }
+            
+        })
+        
+        /* 3. Sort Assignments By Date */
+        for eachAssignment in assignments_ByFolderID {
+            assignments_ByFolderID[eachAssignment.key] = assignments_ByFolderID[eachAssignment.key]?.sorted{$0.timeIntervalSince ?? 0.0 < $1.timeIntervalSince ?? 0.0}
         }
+
+        self.assignmentsDict = data
     }
 }
 
-// MARK:: Logic for filtering and adjusting the Data
-extension ViewController {
-    /* Adjust the folder ID */
-    func adjustAllData(data: inout [ClassOrganizationModel]){
-        for (index, eachGrouping) in data.enumerated() {
-            if let currentDate = eachGrouping.created, let currentGroupingDate = dateFormatter.date(from: currentDate) {
-                data[index].timeIntervalSince = currentGroupingDate.timeIntervalSince1970
-            }
-            /*Adjust folder ID to correctly classify uncategorized sections*/
-            guard let folderID = eachGrouping.folder_id, Int(folderID) ?? (folderDataCount + 1) < folderDataCount else {
-                data[index].adjustFolderID(newId: folderDataCount+1)
-                continue
-            }
-        }
-        data = data.sorted { $0.timeIntervalSince ?? 0.0 < $1.timeIntervalSince ?? 0.0 }
-    }
-}
+
+
 
 // MARK:: Table View Delegate Functions
-extension ViewController {
+extension ViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        guard let assignmentsData = assignmentsData else {return 0}
-        /* Assign the assignments data to the proper section*/
-        let matchingSectionCount = assignmentsData.filter({Int($0.folder_id ?? "") == (section+1)}).count
-        return matchingSectionCount
+        return assignments_ByFolderID[section+1]?.count ?? 0
     }
-    
+
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         /* Account for uncategorized cell and avoid crash by stopping array from checking an index out of range */
-        guard section < folderDataCount else {return "Uncategorized"}
-        return foldersData?[section].name
+        guard section < assignmentsDict[FileNames.folders]?.count ?? 0 else {return "Uncategorized"}
+        return assignmentsDict[FileNames.folders]?[section].name
     }
-    
+
     func numberOfSections(in tableView: UITableView) -> Int {
-        return folderDataCount + 1
+        let count = assignmentsDict[FileNames.folders]?.count ?? 0
+        return count + 1
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: "ClassOrganizationCell") as? ClassOrganizationCell else {return UITableViewCell.init()}
-        guard let assignmentsData = assignmentsData else {return UITableViewCell.init()}
-        
         let section = indexPath.section
-        let matchingSectionData = assignmentsData.filter({Int($0.folder_id ?? "") == (section+1)})
-        
-        let cellName = matchingSectionData[indexPath.row].name
-        let cellDate = matchingSectionData[indexPath.row].created
-        
-        cell.classTitle.text = cellName
-        
+        cell.classTitle.text = assignments_ByFolderID[section+1]?[indexPath.row].name
+        let cellDate = assignments_ByFolderID[section+1]?[indexPath.row].created
         if let stringDate = cellDate, let formatedDate = self.formatDate(date: stringDate) {
             cell.classDateInformation.text = formatedDate
         }
         return cell
     }
-    
+
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         80
     }
-    
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: false)
     }

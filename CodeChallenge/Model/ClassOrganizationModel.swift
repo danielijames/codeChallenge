@@ -9,21 +9,16 @@ import Foundation
 
 /* Codable inherits both encodable and decodable */
 
-struct ClassOrganizationModel: Codable {
+struct ClassOrganizationModel: Codable, Hashable {
     /* All Entries must contain id */
     var id: String
     /* Optional values for which the API could return */
     var name: String?
     var description: String?
     var created: String?
-    /* Variable for editing folder ID */
     var folder_id: String?
     
-    /*Additional Parameters for organizing*/
+    /*Additional Parameters for Organizing*/
     var timeIntervalSince: Double?
-    
-    mutating func adjustFolderID(newId: Int) {
-        self.folder_id = String(newId)
-    }
 }
 
