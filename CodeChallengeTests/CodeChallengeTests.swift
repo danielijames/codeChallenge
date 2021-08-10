@@ -8,26 +8,54 @@
 import XCTest
 @testable import CodeChallenge
 
+private enum VCErrorCases: Error {
+    case NoVC
+}
+
 class CodeChallengeTests: XCTestCase {
+    
+    var sut: ViewController?
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+        guard let vc = UIStoryboard(name: "Main", bundle: nil).instantiateViewController(withIdentifier: "ViewController") as? ViewController else {
+            throw VCErrorCases.NoVC}
+        sut = vc
+        sut?.loadViewIfNeeded()
     }
 
     override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        sut = nil
     }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+    func testDateFormat() {
+        //Setup
+        let dateFormat = sut?.dateFormatter.dateFormat
+        //Action
+        /* Action of view did load called setup to handle date formatting */
+        //Test
+        XCTAssertNotNil(dateFormat)
     }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    
+    func testTableViewConnections() {
+        //Setup
+        let tableView = sut?.tableView
+        //Action
+        /* Action of view did load called setup to handle date formatting */
+        //Test
+        XCTAssertNotNil(tableView?.delegate, "TableView delegate missing")
+        XCTAssertNotNil(tableView?.dataSource, "TableView datasource missing")
+    }
+    
+    func testFetchData() {
+        //Setup
+        var assignments: assignments?
+        _ = sut?.fetchData(completion: { assignmentsRecieved in
+            assignments = assignmentsRecieved
+        })
+        //Action
+        /* Action of view did load called setup to handle date formatting */
+        //Test
+        XCTAssertNotNil(assignments, "Local files contain values")
     }
 
 }
